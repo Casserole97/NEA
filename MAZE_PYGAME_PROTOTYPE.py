@@ -2,7 +2,7 @@ import pygame
 from random import choice, random
 pygame.init()
 
-# REMEMBER THE DIFFERENCE BETWEEN CARTESIAN AND ROW/COLUMN
+# REMEMBER THE DIFFERENCE BETWEEN X/Y AND ROW/COLUMN
 #  X 0 1 2 3 4   |  C 0 1 2 3 4
 # Y              | R
 # 0              | 0
@@ -12,10 +12,10 @@ pygame.init()
 # 4              | 4
 
 # Declaring variables
-MAX_WIDTH = 800
+MAX_WIDTH = 1000
 MAX_HEIGHT = 800
 
-# Creating surface to draw on
+# Creating the surface which will be displayed
 DisplaySurface = pygame.display.set_mode((MAX_WIDTH, MAX_HEIGHT))
 DisplaySurface.fill(pygame.Color("white"))
 pygame.display.set_caption("test")
