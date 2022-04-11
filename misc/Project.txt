@@ -1,0 +1,50 @@
+- A game with the main idea being generation of Mazes of different sizes
+- There are many maze generation algorithms, some also double as maze solving algorithms. I am unsure as to which one to use currently, but it will probably be the most memory efficient one.
+- As this is a game, lots of things will be programmed using OOP (as most of them will have different parameters and would be encapsulated)
+
+- Uses the PyGame module
+
+- The project will be a display of computer science skills as well as a mild display of game design skills
+
+- Gameplay consists of navigating the playable "character" (probably a simple dot, I'm trying to go for very simplistic graphics) through a randomly generated maze with a top-down perspective
+- The character will be an object with parameters like HP, texture, speed, hitboxes, controls
+
+- I would not only need to make a maze generator, but also to make a hitbox generator for the walls of the maze (so that the character doesn't just phase through the walls)
+
+- The camera will be close to the character, limiting the view of the whole maze.
+It will also be dark, and the character would act as a light source which illuminates the near vicinity (in essence, it removes the ability to see behind walls)
+One could consider it more of a guessing game because of that, since usually to solve a maze it needs to be seen fully.
+- To program this hitbox detection would be needed, as well as some way to distinguish light and dark
+
+- But to counteract this, the character will have a map with them that draws out the maze as it is traversed. The character's position would also be displayed on said map.
+This gives the player some idea as to where they are relative to the whole maze, and they would know if they're just walking the same paths again.
+- The map will be programmed as an object with a texture and the recorded path, as well as an indicator of where the player is on the map
+
+- However, despite the character not seeing through walls, the exit will still be highlighted when it's on the screen (perhaps with some sparkly VFX)
+This will make it apparent where the exit is if the character ever gets near it, eliminating some aimless walking and giving the player a clearer goal
+- The special effect would be a parameter of the object "exit"
+
+- It wouldn't be a game without any challenge or restrictions, so there will be:
+1) A time limit
+2) An unkillable "follower" enemy, akin to the minotaur
+As time passes, the enemy gets faster. When time reaches 0 the character is found and killed as fast as possible.
+It will also be shown on the map if the enemy crosses a discovered path. This will give the player an advantage if they explored a lot of different paths.
+- The timer would be an object which parameters like time and a texture
+- The enemy would be an object with parameters similar to the character, but they would also need an AI
+
+### I AM UNSURE ABOUT THIS
+- I want to have the ability to display the path to the exit from any given point in the maze, so I will need to write an algorithm for that
+The idea is that the maze will have unfinished maps lying on the ground in different spots. Upon collecting them, a part of the correct path is added to the character's map
+This removes some randomness from the game and would make it more fair.
+This also adds some unspoken story to the game. How did the maps appear there in the first place?
+###
+
+- Another way to add some fairness to the gameplay is to add some unchanging factors. For example, the character ALWAYS appears at the bottom of the maze and the exit is ALWAYS at the top of the maze.
+(Not sure about this, it could make the game way too 'unrandom'?)
+- Certain maze generation algorithms would allow for this quite easily
+
+- The game will have levels with varying difficulties, starting from a small maze and a big time limit so it's virtually impossible to lose.
+This will also help the player get familiar with the mechanics and the gameplay before it becomes difficult.
+
+- The path the character takes is recorded and then shown at the end of the game, whether the player loses or wins.
+- I am unsure how to do this, but perhaps stacks would help?
