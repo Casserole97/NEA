@@ -14,10 +14,12 @@ pygame.init()
 # Declaring variables.
 MAX_WIDTH = 800
 MAX_HEIGHT = 600
+COLOR1 = (255, 255, 255)
+COLOR2 = (0, 0, 0)
 
 # Creating the surface which will be displayed.
 DisplaySurface = pygame.display.set_mode((MAX_WIDTH, MAX_HEIGHT))
-DisplaySurface.fill((0, 0, 0))
+DisplaySurface.fill(COLOR2)
 pygame.display.set_caption("Game")
 
 # Basic class that acts as a coordinate on a map.
@@ -96,13 +98,13 @@ class Grid():
     # The grid is drawn on a new surface which is then returned.
     def DrawGrid(self):
         grid_surf = pygame.Surface((self.total_hor_pixels, self.total_ver_pixels))
-        grid_surf.fill((0, 0, 0))
+        grid_surf.fill(COLOR2)
         count1 = 0
         count2 = 0
         for row in self.grid:
             for tile in row:
                 if tile.type == "WALL":
-                    pygame.draw.rect(grid_surf, (255, 255, 255), pygame.Rect(count1, count2, self.tile_pixels, self.tile_pixels))
+                    pygame.draw.rect(grid_surf, COLOR1, pygame.Rect(count1, count2, self.tile_pixels, self.tile_pixels))
                 count1 += self.tile_pixels
             count1 = 0
             count2 += self.tile_pixels
@@ -163,10 +165,10 @@ class Grid():
 
 # Player class.
 class Player(pygame.sprite.Sprite):
-    def __init__(self, size):
+    def __init__(self, pixels):
         super().__init__()
-        self.surf = pygame.Surface((size, size))
-        self.surf.fill((255, 255, 255))
+        self.surf = pygame.Surface((pixels, pixels))
+        self.surf.fill(COLOR1)
         self.rect = self.surf.get_rect()
 
     def update(self, pressed_keys, speed):
@@ -180,18 +182,18 @@ class Player(pygame.sprite.Sprite):
             if pressed_keys[pygame.K_RIGHT]:
                 self.rect.move_ip(speed, 0)
 
-            # Prevents out of bounds movement.
-            if self.rect.left < 0:
-                self.rect.left = 0
-            if self.rect.right > MAX_WIDTH:
-                self.rect.right = MAX_WIDTH
-            if self.rect.top < 0:
-                self.rect.top = 0
-            if self.rect.bottom > MAX_HEIGHT:
-                self.rect.bottom = MAX_HEIGHT
+            # # Prevents out of bounds movement.
+            # if self.rect.left < 0:
+            #     self.rect.left = 0
+            # if self.rect.right > MAX_WIDTH:
+            #     self.rect.right = MAX_WIDTH
+            # if self.rect.top < 0:
+            #     self.rect.top = 0
+            # if self.rect.bottom > MAX_HEIGHT:
+            #     self.rect.bottom = MAX_HEIGHT
 
 # Initialize grid object, generate maze, and get surface object.
-maze1 = Grid(12, 12, 20)
+maze1 = Grid(13, 13, 20)
 maze1.RecursiveBacktracker(maze1.GetTile(1, 1), 0.05)
 maze1_surface = maze1.DrawGrid()
 
@@ -217,7 +219,7 @@ while running:
     p1.update(pressed_keys, 3)
 
     # Draw everything.
-    DisplaySurface.fill((0, 0, 0))
+    DisplaySurface.fill(COLOR2)
     DisplaySurface.blit(maze1_surface, ((MAX_WIDTH-maze1.total_hor_pixels)//2, ((MAX_HEIGHT-maze1.total_ver_pixels)//2)))
     DisplaySurface.blit(p1.surf, p1.rect)
 
