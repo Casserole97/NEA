@@ -167,9 +167,9 @@ class Grid():
 class Player(pygame.sprite.Sprite):
     def __init__(self, pixels):
         super().__init__()
-        self.surf = pygame.Surface((pixels, pixels))
-        self.surf.fill(COLOR1)
-        self.rect = self.surf.get_rect()
+        self.image = pygame.Surface((pixels, pixels))
+        self.image.fill(COLOR1)
+        self.rect = self.image.get_rect()
 
     def update(self, pressed_keys, speed):
             # Moves player based on speed.
@@ -221,7 +221,7 @@ while running:
     # Draw everything.
     DisplaySurface.fill(COLOR2)
     DisplaySurface.blit(maze1_surface, ((MAX_WIDTH-maze1.total_hor_pixels)//2, ((MAX_HEIGHT-maze1.total_ver_pixels)//2)))
-    DisplaySurface.blit(p1.surf, p1.rect)
+    DisplaySurface.blit(p1.image, p1.rect)
 
     # Flip display.
     pygame.display.flip()
