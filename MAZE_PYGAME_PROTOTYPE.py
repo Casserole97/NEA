@@ -182,16 +182,6 @@ class Player(pygame.sprite.Sprite):
             if pressed_keys[pygame.K_RIGHT]:
                 self.rect.move_ip(speed, 0)
 
-            # # Prevents out of bounds movement.
-            # if self.rect.left < 0:
-            #     self.rect.left = 0
-            # if self.rect.right > MAX_WIDTH:
-            #     self.rect.right = MAX_WIDTH
-            # if self.rect.top < 0:
-            #     self.rect.top = 0
-            # if self.rect.bottom > MAX_HEIGHT:
-            #     self.rect.bottom = MAX_HEIGHT
-
 # Initialize grid object, generate maze, and get surface object.
 maze1 = Grid(13, 13, 20)
 maze1.RecursiveBacktracker(maze1.GetTile(1, 1), 0.05)
