@@ -3,18 +3,20 @@
 
 import pygame
 import random
+
+from MAZE_PYGAME_PROTOTYPE import DisplaySurface
 pygame.init()
 
 # Declaring variables
-MAX_WIDTH = 1000
-MAX_HEIGHT = 800
+MAX_WIDTH = 800
+MAX_HEIGHT = 600
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 
 # Creating enemy and cloud spawning events and making them appear every interval
 ADDENEMY = pygame.USEREVENT + 1
-pygame.time.set_timer(ADDENEMY, 250)
+# pygame.time.set_timer(ADDENEMY, 250)
 ADDCLOUD = pygame.USEREVENT + 2
 pygame.time.set_timer(ADDCLOUD, 1000)
 
@@ -22,28 +24,67 @@ pygame.time.set_timer(ADDCLOUD, 1000)
 display_surface = pygame.display.set_mode((MAX_WIDTH, MAX_HEIGHT))
 display_surface.fill(WHITE)
 
+# Tile class made for testing collisions
+class Tile(pygame.sprite.Sprite):
+    def __init__(self, pixels):
+        super().__init__()
+        self.image = pygame.Surface((pixels, pixels))
+        self.image.fill(BLACK)
+        self.rect = self.image.get_rect(center=(400, 300))
+    
+    def update(self, pressed_keys):
+        speed = 10
+        if pressed_keys[pygame.K_w]:
+            self.rect.move_ip(0, -speed)
+        if pressed_keys[pygame.K_s]:
+            self.rect.move_ip(0, speed)
+        if pressed_keys[pygame.K_a]:
+            self.rect.move_ip(-speed, 0)
+        if pressed_keys[pygame.K_d]:
+            self.rect.move_ip(speed, 0)
+
 # Player class
-
-
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        self.surf = pygame.image.load("misc/texture_player1.png").convert()
-        self.surf.set_colorkey(WHITE, pygame.RLEACCEL)
+        self.surf = pygame.Surface((50, 50))
+        self.surf.fill(WHITE)
         self.rect = self.surf.get_rect()
 
     # Checks pressed keys and moves accordingly
     def update(self, pressed_keys):
         speed = 10
+        h_vel = 0
+        v_vel = 0
+
         # Updates player's position by speed depending on the button press
-        if pressed_keys[pygame.K_UP]:
-            self.rect.move_ip(0, -speed)
-        if pressed_keys[pygame.K_DOWN]:
-            self.rect.move_ip(0, speed)
         if pressed_keys[pygame.K_LEFT]:
-            self.rect.move_ip(-speed, 0)
+            h_vel = -speed
+            self.rect.move_ip(h_vel, 0)
         if pressed_keys[pygame.K_RIGHT]:
-            self.rect.move_ip(speed, 0)
+            h_vel = speed
+            self.rect.move_ip(h_vel, 0)
+
+        collided = pygame.sprite.spritecollide(self, tiles, False)
+        for tile in collided:
+            if h_vel > 0:
+                self.rect.right = tile.rect.left
+            elif h_vel < 0:
+                self.rect.left = tile.rect.right
+                
+        if pressed_keys[pygame.K_UP]:
+            v_vel = -speed
+            self.rect.move_ip(0, v_vel)
+        if pressed_keys[pygame.K_DOWN]:
+            v_vel = speed
+            self.rect.move_ip(0, v_vel)
+            
+        collided = pygame.sprite.spritecollide(self, tiles, False)
+        for tile in collided:
+            if v_vel > 0:
+                self.rect.bottom = tile.rect.top
+            elif v_vel < 0:
+                self.rect.top = tile.rect.bottom
 
         # Prevents out of bounds movement
         if self.rect.left < 0:
@@ -56,8 +97,6 @@ class Player(pygame.sprite.Sprite):
             self.rect.bottom = MAX_HEIGHT
 
 # Enemy class
-
-
 class Enemy(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
@@ -74,7 +113,7 @@ class Enemy(pygame.sprite.Sprite):
         if self.rect.right < 0:
             self.kill()
 
-
+# Cloud class
 class Cloud(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
@@ -94,9 +133,14 @@ p1 = Player()
 enemies = pygame.sprite.Group()
 clouds = pygame.sprite.Group()
 all_sprites = pygame.sprite.Group()
+tiles = pygame.sprite.Group()
+
 all_sprites.add(p1)
 
 clock = pygame.time.Clock()
+
+TILE = Tile(100)
+tiles.add(TILE)
 
 # Game loop
 running = True
@@ -121,6 +165,8 @@ while running:
 
     # Updates the character's position
     pressed_keys = pygame.key.get_pressed()
+    TILE.update(pressed_keys)
+    
     p1.update(pressed_keys)
 
     # Checks for collisions between the character and any enemies
@@ -137,6 +183,8 @@ while running:
     # Updates the cloud and enemy positions
     clouds.update()
     enemies.update()
+
+    display_surface.blit(TILE.image, TILE.rect)
 
     # Draws everything on the screen
     pygame.display.flip()
