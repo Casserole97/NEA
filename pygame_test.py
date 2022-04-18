@@ -4,7 +4,7 @@
 import pygame
 import random
 
-from MAZE_PYGAME_PROTOTYPE import DisplaySurface
+from MAZE_PYGAME_PROTOTYPE import DISPLAY_SURFACE
 pygame.init()
 
 # Declaring variables
@@ -42,6 +42,8 @@ class Tile(pygame.sprite.Sprite):
             self.rect.move_ip(-speed, 0)
         if pressed_keys[pygame.K_d]:
             self.rect.move_ip(speed, 0)
+        if pressed_keys[pygame.K_d]:
+            self.rect.update(0, 0, 100, 100)
 
 # Player class
 class Player(pygame.sprite.Sprite):
