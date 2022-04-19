@@ -2,7 +2,7 @@ import pygame
 import random
 import sys
 
-from MAZE_PYGAME_PROTOTYPE import DISPLAY_SURFACE
+from MAZE_PYGAME_PROTOTYPE import display_surface
 pygame.init()
 
 # Declaring variables

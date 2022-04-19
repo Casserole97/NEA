@@ -1,5 +1,5 @@
 import pygame
-from random import choice, random, randint
+from random import choice, random, randrange
 from sys import exit
 pygame.init()
 
@@ -14,8 +14,8 @@ pygame.init()
 
 # Declaring constants.
 # Size of the screen.
-MAX_WIDTH = (13*2+1)*20
-MAX_HEIGHT = (13*2+1)*20
+MAX_WIDTH = 1280
+MAX_HEIGHT = 720
 
 # Colours to be used in the game.
 COLOUR1 = (255, 255, 255)
@@ -23,23 +23,16 @@ COLOUR2 = (0, 0, 0)
 COLOUR3 = (128, 128, 128)
 
 # The size, in pixels, of a side of each individual square tile. Important
-# constant, as many variables will depend on it.
-TILE_PIXELS = 20
-
-# Four sprite groups to which the respective sprites will be added to.
-TILES = pygame.sprite.Group()
-WALLS = pygame.sprite.Group()
-CELLS = pygame.sprite.Group()
-PSSGS = pygame.sprite.Group()
+# constant, as many other variables will depend on it.
+TILE_PIXELS = 50
 
 # Creating the screen which will be displayed.
-DISPLAY_SURFACE = pygame.display.set_mode((MAX_WIDTH, MAX_HEIGHT))
-DISPLAY_SURFACE.fill(COLOUR2)
+display_surface = pygame.display.set_mode((MAX_WIDTH, MAX_HEIGHT))
 pygame.display.set_caption("Game")
 
 # Sprite that acts as a row/column coordinate on the grid.
-# Only needed for other classes to inherit from, will never be placed
-# on the grid.
+# Only needed for other classes to inherit from, will never be placed on the 
+# grid.
 class Tile(pygame.sprite.Sprite):
     def __init__(self, row, col):
         super().__init__()
@@ -47,7 +40,8 @@ class Tile(pygame.sprite.Sprite):
         self.col = col
         self.image = pygame.Surface((TILE_PIXELS, TILE_PIXELS))
         self.rect = self.image.get_rect()
-        TILES.add(self)
+        tiles_group.add(self)
+        camera_group.add(self)
 
     # Return the row and column in the grid on which the tile resides.
     def GetPos(self):
@@ -60,7 +54,7 @@ class Wall(Tile):
         self.type = "WALL"
         self.colour = COLOUR1
         self.image.fill(self.colour)
-        WALLS.add(self)
+        walls_group.add(self)
 
 # A tile that can be walked through. It acts as the nodes of a graph.
 class Cell(Tile):
@@ -70,7 +64,7 @@ class Cell(Tile):
         self.visited = False
         self.colour = COLOUR2
         self.image.fill(self.colour)
-        CELLS.add(self)
+        cells_group.add(self)
 
     # Return a boolean.
     def IsVisited(self):
@@ -80,7 +74,7 @@ class Cell(Tile):
     def Visit(self):
         self.visited = True
 
-# The passage class is used to indiciate a connection between cells, acts as
+# The passage class is used to indiciate a connection between cells, acts as 
 # the edges of a graph.
 class Passage(Tile):
     def __init__(self, row, col):
@@ -88,7 +82,7 @@ class Passage(Tile):
         self.type = "PASSAGE"
         self.colour = COLOUR2
         self.image.fill(self.colour)
-        PSSGS.add(self)
+        pssgs_group.add(self)
 
 # The grid class is basically a two dimensional array with special methods.
 # Each space will hold either a wall, a cell, or a passage.
@@ -207,10 +201,11 @@ class Player(pygame.sprite.Sprite):
         self.image = pygame.Surface((TILE_PIXELS//2, TILE_PIXELS//2))
         self.image.fill(COLOUR3)
         self.rect = self.image.get_rect()
+        camera_group.add(self)
 
-    def update(self, pressed_keys):
+    def update(self):
         speed = TILE_PIXELS//10
-
+        pressed_keys = pygame.key.get_pressed()
         h_vel = 0
         v_vel = 0
 
@@ -223,7 +218,7 @@ class Player(pygame.sprite.Sprite):
             self.rect.move_ip(h_vel, 0)
 
         # Checks for collided tiles and prevents movement.
-        collided = pygame.sprite.spritecollide(self, WALLS, False)
+        collided = pygame.sprite.spritecollide(self, walls_group, False)
         for wall in collided:
             if h_vel > 0:
                 self.rect.right = wall.rect.left
@@ -237,26 +232,54 @@ class Player(pygame.sprite.Sprite):
         if pressed_keys[pygame.K_DOWN]:
             v_vel = speed
             self.rect.move_ip(0, v_vel)
-            
-        collided = pygame.sprite.spritecollide(self, WALLS, False)
+        
+        # "collided" must be updated again.
+        collided = pygame.sprite.spritecollide(self, walls_group, False)
         for wall in collided:
             if v_vel > 0:
                 self.rect.bottom = wall.rect.top
             elif v_vel < 0:
                 self.rect.top = wall.rect.bottom
 
-# Initializing objects.
-# The grid object is created, populated with tiles, and then the maze algorithm
-# is invoked.
-maze1 = Grid(13, 13)
-maze1.RecursiveBacktracker(maze1.GetTile(13, 13), 0.05)
+# Camera class.
+class Camera(pygame.sprite.Group):
+    def __init__(self):
+        super().__init__()
+
+    # Calculates the X and Y offset required to keep the sprite in the center
+    # of the screen.
+    def calculate_offset(self, sprite):
+        offset_x = sprite.rect.centerx - MAX_WIDTH//2
+        offset_y = sprite.rect.centery - MAX_HEIGHT//2
+        return offset_x, offset_y
+    
+    # Overrides the default draw method, with the addition of centering the
+    # camera on the player.
+    def draw(self, display):
+        offset = self.calculate_offset(p1)
+        for sprite in self:
+            # The offset is subtracted from the topleft corner of every rect.
+            new_pos = ((sprite.rect.topleft[0] - offset[0]), (sprite.rect.topleft[1] - offset[1]))
+            display.blit(sprite.image, new_pos)
+
+# Initialization of groups.
+tiles_group = pygame.sprite.Group()
+walls_group = pygame.sprite.Group()
+cells_group = pygame.sprite.Group()
+pssgs_group = pygame.sprite.Group()
+camera_group = Camera()
+
+# The grid object is initialized, populated with tiles, and then the maze 
+# algorithm is invoked on a cell.
+maze1 = Grid(25, 25)
+maze1.RecursiveBacktracker(maze1.GetTile(25, 25), 0.025)
 maze1_surface = maze1.UpdateTilePos()
 
-# Player object is initialized and positioned in a cell in the maze.
+# Player object is initialized and positioned in a random cell in the maze.
 p1 = Player()
-p1.rect.center = maze1.GetTile(1, 1).rect.center
+p1.rect.center = maze1.GetTile(randrange(1, 27, 2), randrange(1, 27, 2)).rect.center
 
-# Clock object initialized. Needed to keep FPS stable during each cycle.
+# Clock object initialized. Needed to keep FPS stable during runtime.
 clock = pygame.time.Clock()
 
 # Game loop. Runs each frame.
@@ -270,20 +293,17 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-    # Get the list of pressed keys and update the character's position.
-    pressed_keys = pygame.key.get_pressed()
-    p1.update(pressed_keys)
+    # Update and draw everything.
+    display_surface.fill(COLOUR2)
+    camera_group.update()
+    camera_group.draw(display_surface)
 
-    # Draw everything.
-    TILES.draw(DISPLAY_SURFACE)
-    DISPLAY_SURFACE.blit(p1.image, p1.rect)
-
-    # Flip display.
-    pygame.display.flip()
+    # Update display.
+    pygame.display.update()
 
     # Makes the game run at a set FPS.
     clock.tick(60)
 
-# Quits pygame to successfuly close the game.
+# Successfuly closes the game.
 pygame.quit()
 exit()
