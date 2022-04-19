@@ -1,5 +1,6 @@
 import pygame
 from random import choice, random, randint
+from sys import exit
 pygame.init()
 
 # REMEMBER THE DIFFERENCE BETWEEN X/Y AND ROW/COLUMN.
@@ -124,22 +125,22 @@ class Grid():
         try:
             if not self.GetTile(row+N, col).IsVisited():
                 unvisited_neighbours.append(self.GetTile(row+N, col))
-        except:
+        except Exception:
             pass
         try:
             if not self.GetTile(row, col+E).IsVisited():
                 unvisited_neighbours.append(self.GetTile(row, col+E))
-        except:
+        except Exception:
             pass
         try:
             if not self.GetTile(row+S, col).IsVisited():
                 unvisited_neighbours.append(self.GetTile(row+S, col))
-        except:
+        except Exception:
             pass
         try:
             if not self.GetTile(row, col+W).IsVisited():
                 unvisited_neighbours.append(self.GetTile(row, col+W))
-        except:
+        except Exception:
             pass
         return unvisited_neighbours
 
@@ -285,3 +286,4 @@ while running:
 
 # Quits pygame to successfuly close the game.
 pygame.quit()
+exit()
