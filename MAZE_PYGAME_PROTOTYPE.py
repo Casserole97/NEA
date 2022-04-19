@@ -13,8 +13,8 @@ pygame.init()
 
 # Declaring constants.
 # Size of the screen.
-MAX_WIDTH = 800
-MAX_HEIGHT = 600
+MAX_WIDTH = (13*2+1)*20
+MAX_HEIGHT = (13*2+1)*20
 
 # Colours to be used in the game.
 COLOUR1 = (255, 255, 255)
@@ -34,7 +34,7 @@ PSSGS = pygame.sprite.Group()
 # Creating the screen which will be displayed.
 DISPLAY_SURFACE = pygame.display.set_mode((MAX_WIDTH, MAX_HEIGHT))
 DISPLAY_SURFACE.fill(COLOUR2)
-pygame.display.set_caption("yooo pog pog pog")
+pygame.display.set_caption("Game")
 
 # Sprite that acts as a row/column coordinate on the grid.
 # Only needed for other classes to inherit from, will never be placed
@@ -173,7 +173,7 @@ class Grid():
                     print('  ', end='')
 
     # Update's the tile's positions, as each tile's initial position is (0, 0). 
-    def DrawGrid(self):
+    def UpdateTilePos(self):
         count1 = 0
         count2 = 0
         for row in self.grid:
@@ -185,19 +185,19 @@ class Grid():
 
     ### OLD METHOD
     # Returns a surface on which the maze is drawn.
-    # def DrawGrid(self):
-    #     grid_surf = pygame.Surface((self.total_hor_pixels, self.total_ver_pixels))
-    #     grid_surf.fill(COLOUR2)
-    #     count1 = 0
-    #     count2 = 0
-    #     for row in self.grid:
-    #         for tile in row:
-    #             if tile.type == "WALL":
-    #                 pygame.draw.rect(grid_surf, COLOUR1, pygame.Rect(count1, count2, self.tile_pixels, self.tile_pixels))
-    #             count1 += self.tile_pixels
-    #         count1 = 0
-    #         count2 += self.tile_pixels
-    #     return grid_surf
+    def OLD_DRAW_GRID(self):
+        grid_surf = pygame.Surface((self.total_hor_pixels, self.total_ver_pixels))
+        grid_surf.fill(COLOUR2)
+        count1 = 0
+        count2 = 0
+        for row in self.grid:
+            for tile in row:
+                if tile.type == "WALL":
+                    pygame.draw.rect(grid_surf, COLOUR1, pygame.Rect(count1, count2, TILE_PIXELS, TILE_PIXELS))
+                count1 += TILE_PIXELS
+            count1 = 0
+            count2 += TILE_PIXELS
+        return grid_surf
 
 # Player class.
 class Player(pygame.sprite.Sprite):
@@ -249,7 +249,7 @@ class Player(pygame.sprite.Sprite):
 # is invoked.
 maze1 = Grid(13, 13)
 maze1.RecursiveBacktracker(maze1.GetTile(13, 13), 0.05)
-maze1_surface = maze1.DrawGrid()
+maze1_surface = maze1.UpdateTilePos()
 
 # Player object is initialized and positioned in a cell in the maze.
 p1 = Player()
