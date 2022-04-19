@@ -1,8 +1,6 @@
-# https://coderslegacy.com/python/python-pygame-tutorial/
-# https://realpython.com/pygame-a-primer/
-
 import pygame
 import random
+import sys
 
 from MAZE_PYGAME_PROTOTYPE import DISPLAY_SURFACE
 pygame.init()
@@ -42,8 +40,6 @@ class Tile(pygame.sprite.Sprite):
             self.rect.move_ip(-speed, 0)
         if pressed_keys[pygame.K_d]:
             self.rect.move_ip(speed, 0)
-        if pressed_keys[pygame.K_d]:
-            self.rect.update(0, 0, 100, 100)
 
 # Player class
 class Player(pygame.sprite.Sprite):
@@ -130,6 +126,8 @@ class Cloud(pygame.sprite.Sprite):
         if self.rect.right < 0:
             self.kill()
 
+class Camera:
+    pass
 
 p1 = Player()
 enemies = pygame.sprite.Group()
@@ -195,3 +193,4 @@ while running:
     clock.tick(60)
 
 pygame.quit()
+sys.exit()
