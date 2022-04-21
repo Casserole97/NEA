@@ -18,13 +18,15 @@ MAX_WIDTH = 1280
 MAX_HEIGHT = 720
 
 # Colours to be used in the game.
-COLOUR1 = (255, 255, 255)
-COLOUR2 = (0, 0, 0)
-COLOUR3 = (128, 128, 128)
+COLOUR1 = (255, 255, 255) # WHITE
+COLOUR2 = (0, 0, 0)       # BLACK
+COLOUR3 = (128, 128, 128) # GREY
+COLOUR4 = (0, 0, 255)
+COLOUR5 = (30, 30, 30)
 
 # The size, in pixels, of a side of each individual square tile. Important
 # constant, as many other variables will depend on it.
-TILE_PIXELS = 50
+TILE_PIXELS = 45
 
 # Creating the screen which will be displayed.
 display_surface = pygame.display.set_mode((MAX_WIDTH, MAX_HEIGHT))
@@ -63,8 +65,10 @@ class Cell(Tile):
         self.type = "CELL"
         self.visited = False
         self.colour = COLOUR2
-        self.image.fill(self.colour)
         cells_group.add(self)
+
+    def update(self):
+        self.image.fill(self.colour)
 
     # Return a boolean.
     def IsVisited(self):
@@ -81,8 +85,10 @@ class Passage(Tile):
         super().__init__(row, col)
         self.type = "PASSAGE"
         self.colour = COLOUR2
-        self.image.fill(self.colour)
         pssgs_group.add(self)
+    
+    def update(self):
+        self.image.fill(self.colour)
 
 # The grid class is basically a two dimensional array with special methods.
 # Each space will hold either a wall, a cell, or a passage.
@@ -167,7 +173,7 @@ class Grid():
                 else:
                     print('  ', end='')
 
-    # Update's the tile's positions, as each tile's initial position is (0, 0). 
+    # Update's the tiles' positions, as each tile's initial position is (0, 0). 
     def UpdateTilePos(self):
         count1 = 0
         count2 = 0
@@ -178,21 +184,51 @@ class Grid():
             count1 = 0
             count2 += TILE_PIXELS
 
-    ### OLD METHOD
-    # Returns a surface on which the maze is drawn.
-    def OLD_DRAW_GRID(self):
-        grid_surf = pygame.Surface((self.total_hor_pixels, self.total_ver_pixels))
-        grid_surf.fill(COLOUR2)
+    # Returns a surface on which the map is drawn.
+    def DrawMap(self, tile_pixels=5):
+        map_surf = pygame.Surface((self.MAX_HOR_TILES*tile_pixels, self.MAX_VER_TILES*tile_pixels))
+        map_surf.fill(COLOUR2)
         count1 = 0
         count2 = 0
         for row in self.grid:
             for tile in row:
-                if tile.type == "WALL":
-                    pygame.draw.rect(grid_surf, COLOUR1, pygame.Rect(count1, count2, TILE_PIXELS, TILE_PIXELS))
-                count1 += TILE_PIXELS
+                coords = tile.GetPos()
+                if coords[0] == 0 or coords[1] == 0 or coords[0] == self.MAX_VER_TILES-1 or coords[1] == self.MAX_HOR_TILES-1:
+                    pygame.draw.rect(map_surf, COLOUR1, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
+                if pygame.sprite.spritecollideany(tile, player_group) != None:
+                    pygame.draw.rect(map_surf, COLOUR3, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
+                elif tile.type == "CELL":
+                    pygame.draw.rect(map_surf, tile.colour, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
+                elif tile.type == "PASSAGE":
+                    pygame.draw.rect(map_surf, tile.colour, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
+
+                count1 += tile_pixels
             count1 = 0
-            count2 += TILE_PIXELS
-        return grid_surf
+            count2 += tile_pixels
+        return map_surf
+
+    # Returns a random cell in the grid
+    def GetRandomCell(self):
+        last_cell = self.grid[-2][-2].GetPos()
+        random_row = randrange(1, last_cell[0], 2)
+        random_col = randrange(1, last_cell[1], 2)
+        return self.GetTile(random_row, random_col)
+    
+    def IsDeadEnd(self, cell):
+        walls = 0
+        row, col = cell.GetPos()
+        if self.GetTile(row+1, col).type == "WALL":
+            walls += 1
+        if self.GetTile(row-1, col).type == "WALL":
+            walls += 1
+        if self.GetTile(row, col+1).type == "WALL":
+            walls += 1
+        if self.GetTile(row, col-1).type == "WALL":
+            walls += 1
+        if walls == 3:
+            return True
+        else:
+            return False
 
 # Player class.
 class Player(pygame.sprite.Sprite):
@@ -201,6 +237,7 @@ class Player(pygame.sprite.Sprite):
         self.image = pygame.Surface((TILE_PIXELS//2, TILE_PIXELS//2))
         self.image.fill(COLOUR3)
         self.rect = self.image.get_rect()
+        player_group.add(self)
         camera_group.add(self)
 
     def update(self):
@@ -208,6 +245,14 @@ class Player(pygame.sprite.Sprite):
         pressed_keys = pygame.key.get_pressed()
         h_vel = 0
         v_vel = 0
+
+        # Colour the cells and passages upon collision.
+        touched_cell = pygame.sprite.spritecollideany(self, cells_group)
+        if touched_cell != None:
+            touched_cell.colour = COLOUR4
+        touched_passage = pygame.sprite.spritecollideany(self, pssgs_group)
+        if touched_passage != None:
+            touched_passage.colour = COLOUR4
 
         # Horizontal movement.
         if pressed_keys[pygame.K_LEFT]:
@@ -217,9 +262,9 @@ class Player(pygame.sprite.Sprite):
             h_vel = speed
             self.rect.move_ip(h_vel, 0)
 
-        # Checks for collided tiles and prevents movement.
-        collided = pygame.sprite.spritecollide(self, walls_group, False)
-        for wall in collided:
+        # Checks for collided walls and prevents movement.
+        collided_walls = pygame.sprite.spritecollide(self, walls_group, False)
+        for wall in collided_walls:
             if h_vel > 0:
                 self.rect.right = wall.rect.left
             elif h_vel < 0:
@@ -234,8 +279,8 @@ class Player(pygame.sprite.Sprite):
             self.rect.move_ip(0, v_vel)
         
         # "collided" must be updated again.
-        collided = pygame.sprite.spritecollide(self, walls_group, False)
-        for wall in collided:
+        collided_walls = pygame.sprite.spritecollide(self, walls_group, False)
+        for wall in collided_walls:
             if v_vel > 0:
                 self.rect.bottom = wall.rect.top
             elif v_vel < 0:
@@ -267,17 +312,19 @@ tiles_group = pygame.sprite.Group()
 walls_group = pygame.sprite.Group()
 cells_group = pygame.sprite.Group()
 pssgs_group = pygame.sprite.Group()
+enemy_group = pygame.sprite.Group()
+player_group = pygame.sprite.Group()
 camera_group = Camera()
 
 # The grid object is initialized, populated with tiles, and then the maze 
-# algorithm is invoked on a cell.
-maze1 = Grid(25, 25)
-maze1.RecursiveBacktracker(maze1.GetTile(25, 25), 0.025)
-maze1_surface = maze1.UpdateTilePos()
+# algorithm is invoked on a random cell.
+maze1 = Grid(27, 27)
+maze1.RecursiveBacktracker(maze1.GetRandomCell(), 0.025)
+maze1.UpdateTilePos()
 
 # Player object is initialized and positioned in a random cell in the maze.
 p1 = Player()
-p1.rect.center = maze1.GetTile(randrange(1, 27, 2), randrange(1, 27, 2)).rect.center
+p1.rect.center = maze1.GetRandomCell().rect.center
 
 # Clock object initialized. Needed to keep FPS stable during runtime.
 clock = pygame.time.Clock()
@@ -297,6 +344,14 @@ while running:
     display_surface.fill(COLOUR2)
     camera_group.update()
     camera_group.draw(display_surface)
+
+    # HUD
+    border = pygame.surface.Surface((280, 720))
+    border.fill(COLOUR5)
+    maze1_map = maze1.DrawMap()
+    display_surface.blit(border, (0, 0))
+    display_surface.blit(border, (1000, 0))
+    display_surface.blit(maze1_map, (((280-maze1_map.get_width())//2), ((280-maze1_map.get_width())//2)))
 
     # Update display.
     pygame.display.update()
