@@ -187,7 +187,7 @@ class Grid():
     # Returns a surface on which the map is drawn.
     def DrawMap(self, tile_pixels=5):
         map_surf = pygame.Surface((self.MAX_HOR_TILES*tile_pixels, self.MAX_VER_TILES*tile_pixels))
-        map_surf.fill(COLOUR2)
+        # map_surf.fill(COLOUR2)
         count1 = 0
         count2 = 0
         for row in self.grid:
@@ -195,13 +195,12 @@ class Grid():
                 coords = tile.GetPos()
                 if coords[0] == 0 or coords[1] == 0 or coords[0] == self.MAX_VER_TILES-1 or coords[1] == self.MAX_HOR_TILES-1:
                     pygame.draw.rect(map_surf, COLOUR1, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
-                if pygame.sprite.spritecollideany(tile, player_group) != None:
+                elif tile.rect.collidepoint(p1.rect.center):
                     pygame.draw.rect(map_surf, COLOUR3, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
                 elif tile.type == "CELL":
                     pygame.draw.rect(map_surf, tile.colour, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
                 elif tile.type == "PASSAGE":
                     pygame.draw.rect(map_surf, tile.colour, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
-
                 count1 += tile_pixels
             count1 = 0
             count2 += tile_pixels
@@ -239,6 +238,16 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         player_group.add(self)
         camera_group.add(self)
+        
+    # Returns the tile which intersects with the center of the player sprite.
+    def GetCurrentTile(self):
+        center = self.rect.center
+        for cell in cells_group:
+            if cell.rect.collidepoint(center):
+                return cell
+        for passage in pssgs_group:
+            if passage.rect.collidepoint(center):
+                return passage
 
     def update(self):
         speed = TILE_PIXELS//10
@@ -247,12 +256,8 @@ class Player(pygame.sprite.Sprite):
         v_vel = 0
 
         # Colour the cells and passages upon collision.
-        touched_cell = pygame.sprite.spritecollideany(self, cells_group)
-        if touched_cell != None:
-            touched_cell.colour = COLOUR4
-        touched_passage = pygame.sprite.spritecollideany(self, pssgs_group)
-        if touched_passage != None:
-            touched_passage.colour = COLOUR4
+        touched_tile = self.GetCurrentTile()
+        touched_tile.colour = COLOUR4
 
         # Horizontal movement.
         if pressed_keys[pygame.K_LEFT]:
@@ -318,7 +323,8 @@ camera_group = Camera()
 
 # The grid object is initialized, populated with tiles, and then the maze 
 # algorithm is invoked on a random cell.
-maze1 = Grid(27, 27)
+cells = 27
+maze1 = Grid(cells, cells)
 maze1.RecursiveBacktracker(maze1.GetRandomCell(), 0.025)
 maze1.UpdateTilePos()
 
