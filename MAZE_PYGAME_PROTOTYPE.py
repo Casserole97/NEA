@@ -324,8 +324,9 @@ class Player(pygame.sprite.Sprite):
                 self.rect.right = wall.rect.left
                 if not wall.special:
                     if item_used == "JUMP" and self.item_jump > 0:
-                        self.rect.left = wall.rect.right
-                        self.use_item("JUMP")
+                        if self.rect.top >= wall.rect.top and self.rect.bottom <= wall.rect.bottom:
+                            self.use_item("JUMP")
+                            self.rect.left = wall.rect.right
                     elif item_used == "BREAK" and self.item_break > 0:
                         self.use_item("BREAK")
                         row, col = wall.GetPos()
@@ -337,8 +338,9 @@ class Player(pygame.sprite.Sprite):
                 self.rect.left = wall.rect.right
                 if not wall.special:
                     if item_used == "JUMP" and self.item_jump > 0:
-                        self.use_item("JUMP")
-                        self.rect.right = wall.rect.left
+                        if self.rect.top >= wall.rect.top and self.rect.bottom <= wall.rect.bottom:
+                            self.use_item("JUMP")
+                            self.rect.right = wall.rect.left
                     elif item_used == "BREAK" and self.item_break > 0:
                         self.use_item("BREAK")
                         row, col = wall.GetPos()
@@ -361,8 +363,9 @@ class Player(pygame.sprite.Sprite):
                 self.rect.bottom = wall.rect.top
                 if not wall.special:
                     if item_used == "JUMP" and self.item_jump > 0:
-                        self.rect.top = wall.rect.bottom
-                        self.use_item("JUMP")
+                        if self.rect.left >= wall.rect.left and self.rect.right <= wall.rect.right:
+                            self.use_item("JUMP")
+                            self.rect.top = wall.rect.bottom
                     elif item_used == "BREAK" and self.item_break > 0:
                         self.use_item("BREAK")
                         row, col = wall.GetPos()
@@ -373,8 +376,9 @@ class Player(pygame.sprite.Sprite):
                 self.rect.top = wall.rect.bottom
                 if not wall.special:
                     if item_used == "JUMP" and self.item_jump > 0:
-                        self.use_item("JUMP")
-                        self.rect.bottom = wall.rect.top
+                        if self.rect.left >= wall.rect.left and self.rect.right <= wall.rect.right:
+                            self.use_item("JUMP")
+                            self.rect.bottom = wall.rect.top
                     elif item_used == "BREAK" and self.item_break > 0:
                         self.use_item("BREAK")
                         row, col = wall.GetPos()
