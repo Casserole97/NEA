@@ -1,6 +1,8 @@
 import pygame
 from random import choice, random, randrange
 from sys import exit
+
+from pygments import highlight
 pygame.init()
 
 # REMEMBER THE DIFFERENCE BETWEEN X/Y AND ROW/COLUMN.
@@ -11,6 +13,9 @@ pygame.init()
 # 2              | 2
 # 3              | 3
 # 4              | 4
+
+# Optimization attempt by reducing number of possible events.
+pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP])
 
 # Declaring constants.
 # Size of the screen.
@@ -24,8 +29,14 @@ COLOUR3 = (128, 128, 128) # GREY
 COLOUR4 = (0, 0, 255)
 COLOUR5 = (30, 30, 30)
 
-# Optimization attempt by reducing number of possible events.
-pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP])
+# Initialization of groups.
+TILES_GROUP = pygame.sprite.Group()
+WALLS_GROUP = pygame.sprite.Group()
+CELLS_GROUP = pygame.sprite.Group()
+PASSAGES_GROUP = pygame.sprite.Group()
+ENEMY_GROUP = pygame.sprite.Group()
+ITEMS_GROUP = pygame.sprite.Group()
+PLAYER_GROUP = pygame.sprite.Group()
 
 # The size, in pixels, of a side of each individual square tile. Important
 # constant, as many other variables will depend on it.
@@ -45,8 +56,8 @@ class Tile(pygame.sprite.Sprite):
         self.col = col
         self.image = pygame.Surface((TILE_PIXELS, TILE_PIXELS)).convert()
         self.rect = self.image.get_rect()
-        tiles_group.add(self)
-        camera_group.add(self)
+        TILES_GROUP.add(self)
+        CAMERA_GROUP.add(self)
 
     # Return the row and column in the grid on which the tile resides.
     def GetPos(self):
@@ -54,12 +65,13 @@ class Tile(pygame.sprite.Sprite):
 
 # A tile that cannot be walked through.
 class Wall(Tile):
-    def __init__(self, row, col):
+    def __init__(self, row, col, is_special):
         super().__init__(row, col)
         self.type = "WALL"
         self.colour = COLOUR1
+        self.special = is_special
         self.image.fill(self.colour)
-        walls_group.add(self)
+        WALLS_GROUP.add(self)
 
 # A tile that can be walked through. It acts as the nodes of a graph.
 class Cell(Tile):
@@ -69,7 +81,7 @@ class Cell(Tile):
         self.visited = False
         self.colour = COLOUR2
         self.image.fill(self.colour)
-        cells_group.add(self)
+        CELLS_GROUP.add(self)
 
     def change_colour(self, colour):
         self.colour = colour
@@ -91,7 +103,7 @@ class Passage(Tile):
         self.type = "PASSAGE"
         self.colour = COLOUR2
         self.image.fill(self.colour)
-        passages_group.add(self)
+        PASSAGES_GROUP.add(self)
     
     def change_colour(self, colour):
         self.colour = colour
@@ -115,7 +127,12 @@ class Grid():
         if row % 2 != 0 and col % 2 != 0:
             return Cell(row, col)
         else:
-            return Wall(row, col)
+            if row % 2 == 0 and col % 2 == 0:
+                return Wall(row, col, True)
+            elif row == 0 or col == 0 or row == self.MAX_VER_TILES-1 or col == self.MAX_HOR_TILES-1:
+                return Wall(row, col, True)
+            else:
+                return Wall(row, col, False)
 
     # Update's the tiles' positions, as each tile's initial pixel position is
     # (0, 0).
@@ -194,7 +211,7 @@ class Grid():
 
 
     # Returns a surface on which the map is drawn.
-    def DrawMap(self, tile_pixels=5):
+    def DrawMap(self, player, tile_pixels=5):
         map_surf = pygame.Surface((self.MAX_HOR_TILES*tile_pixels, self.MAX_VER_TILES*tile_pixels)).convert()
         count1 = 0
         count2 = 0
@@ -203,7 +220,7 @@ class Grid():
                 coords = tile.GetPos()
                 if coords[0] == 0 or coords[1] == 0 or coords[0] == self.MAX_VER_TILES-1 or coords[1] == self.MAX_HOR_TILES-1:
                     pygame.draw.rect(map_surf, COLOUR1, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
-                elif tile.rect.collidepoint(p1.rect.center):
+                elif tile.rect.collidepoint(player.rect.center):
                     pygame.draw.rect(map_surf, COLOUR3, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
                 elif tile.type == "CELL":
                     pygame.draw.rect(map_surf, tile.colour, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
@@ -238,7 +255,7 @@ class Grid():
             return False
     
     def GenerateItems(self):
-        for cell in cells_group:
+        for cell in CELLS_GROUP:
                 if self.IsDeadEnd(cell) and random() <= 0.1:
                     row, col = cell.GetPos()
                     if random() < 0.5:
@@ -254,29 +271,43 @@ class Player(pygame.sprite.Sprite):
         self.image.fill(COLOUR3)
         self.rect = self.image.get_rect()
         self.speed = TILE_PIXELS//10
-        self.item_A = 1
-        self.item_B = 1
-        player_group.add(self)
-        camera_group.add(self)
+        self.item_break = 999
+        self.item_jump = 999
+        PLAYER_GROUP.add(self)
+        CAMERA_GROUP.add(self)
         
     # Returns the tile which intersects with the center of the player sprite.
     def GetCurrentTile(self):
         center = self.rect.center
-        for cell in cells_group:
+        for cell in CELLS_GROUP:
             if cell.rect.collidepoint(center):
                 return cell
-        for passage in passages_group:
+        for passage in PASSAGES_GROUP:
             if passage.rect.collidepoint(center):
                 return passage
 
-    def update(self):
+    def use_item(self, item):
+        if item == "BREAK" and self.item_break > 0:
+            self.item_break -= 1
+        elif item == "JUMP" and self.item_jump > 0:
+            self.item_jump -= 1
+
+    def update(self, item_used, maze):
         pressed_keys = pygame.key.get_pressed()
         h_vel = 0
         v_vel = 0
 
-        # Colour the cells and passages upon collision.
+        # Colour the cells and passages upon collision and grab items.
         touched_tile = self.GetCurrentTile()
-        touched_tile.change_colour(COLOUR4)
+        if touched_tile.colour != COLOUR4:
+            touched_tile.change_colour(COLOUR4)
+        for item in ITEMS_GROUP:
+            if (item.row, item.col) == touched_tile.GetPos():
+                item.kill()
+                if item.type == "BREAK":
+                    self.item_break += 1
+                elif item.type == "JUMP":
+                    self.item_jump += 1
 
         # Horizontal movement.
         if pressed_keys[pygame.K_LEFT]:
@@ -286,13 +317,34 @@ class Player(pygame.sprite.Sprite):
             h_vel = self.speed
             self.rect.move_ip(h_vel, 0)
 
-        # # Checks for collided walls and prevents movement.
-        collided_walls = pygame.sprite.spritecollide(self, walls_group, False)
+        # Checks for collided walls and prevents movement.
+        collided_walls = pygame.sprite.spritecollide(self, WALLS_GROUP, False)
         for wall in collided_walls:
             if h_vel > 0:
                 self.rect.right = wall.rect.left
+                if not wall.special:
+                    if item_used == "JUMP" and self.item_jump > 0:
+                        self.rect.left = wall.rect.right
+                        self.use_item("JUMP")
+                    elif item_used == "BREAK" and self.item_break > 0:
+                        self.use_item("BREAK")
+                        row, col = wall.GetPos()
+                        wall.kill()
+                        maze.grid[row][col] = Passage(row, col)
+                        maze.UpdateTilePos()
+
             elif h_vel < 0:
                 self.rect.left = wall.rect.right
+                if not wall.special:
+                    if item_used == "JUMP" and self.item_jump > 0:
+                        self.use_item("JUMP")
+                        self.rect.right = wall.rect.left
+                    elif item_used == "BREAK" and self.item_break > 0:
+                        self.use_item("BREAK")
+                        row, col = wall.GetPos()
+                        wall.kill()
+                        maze.grid[row][col] = Passage(row, col)
+                        maze.UpdateTilePos()
         
         # Vertical movement.
         if pressed_keys[pygame.K_UP]:
@@ -303,12 +355,32 @@ class Player(pygame.sprite.Sprite):
             self.rect.move_ip(0, v_vel)
         
         # "collided" must be updated again.
-        collided_walls = pygame.sprite.spritecollide(self, walls_group, False)
+        collided_walls = pygame.sprite.spritecollide(self, WALLS_GROUP, False)
         for wall in collided_walls:
             if v_vel > 0:
                 self.rect.bottom = wall.rect.top
+                if not wall.special:
+                    if item_used == "JUMP" and self.item_jump > 0:
+                        self.rect.top = wall.rect.bottom
+                        self.use_item("JUMP")
+                    elif item_used == "BREAK" and self.item_break > 0:
+                        self.use_item("BREAK")
+                        row, col = wall.GetPos()
+                        wall.kill()
+                        maze.grid[row][col] = Passage(row, col)
+                        maze.UpdateTilePos()
             elif v_vel < 0:
                 self.rect.top = wall.rect.bottom
+                if not wall.special:
+                    if item_used == "JUMP" and self.item_jump > 0:
+                        self.use_item("JUMP")
+                        self.rect.bottom = wall.rect.top
+                    elif item_used == "BREAK" and self.item_break > 0:
+                        self.use_item("BREAK")
+                        row, col = wall.GetPos()
+                        wall.kill()
+                        maze.grid[row][col] = Passage(row, col)
+                        maze.UpdateTilePos()
 
 # Camera class.
 class Camera(pygame.sprite.Group):
@@ -324,14 +396,16 @@ class Camera(pygame.sprite.Group):
     
     # Overrides the default draw method, with the addition of centering the
     # camera on the player and only drawing entities that are on screen.
-    def draw(self, display):
-        offset = self.calculate_offset(p1)
-        for sprite in self:
+    def draw(self, display, offset_sprite):
+        offset = self.calculate_offset(offset_sprite)
+        for sprite in sorted(self, key = lambda sprite: sprite in PLAYER_GROUP):
             # Only blit something if it is visible on the screen.
             if sprite.rect.colliderect(pygame.Rect(280+offset[0], offset[1], 720, 720)):
                 # The offset is subtracted from the topleft corner of every rect.
                 new_pos = ((sprite.rect.topleft[0] - offset[0]), (sprite.rect.topleft[1] - offset[1]))
                 display.blit(sprite.image, new_pos)
+
+CAMERA_GROUP = Camera()
 
 #The item class.
 class Item(pygame.sprite.Sprite):
@@ -345,30 +419,21 @@ class Item(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(new_center))
         self.row = row
         self.col = col
-        items_group.add(self)
-        camera_group.add(self)
-
-# Initialization of groups.
-tiles_group = pygame.sprite.Group()
-walls_group = pygame.sprite.Group()
-cells_group = pygame.sprite.Group()
-passages_group = pygame.sprite.Group()
-enemy_group = pygame.sprite.Group()
-items_group = pygame.sprite.Group()
-player_group = pygame.sprite.Group()
-camera_group = Camera()
+        ITEMS_GROUP.add(self)
+        CAMERA_GROUP.add(self)
 
 # The grid object is initialized, populated with tiles, and then the maze 
 # algorithm is invoked on a random cell.
 cells = 27
 maze1 = Grid(cells, cells)
 maze1.RecursiveBacktracker(maze1.GetRandomCell(), 0.025)
-maze1.GenerateItems()
 maze1.UpdateTilePos()
+maze1.GenerateItems()
 
 # Player object is initialized and positioned in a random cell in the maze.
 p1 = Player()
-p1.rect.center = maze1.GetRandomCell().rect.center
+# p1.rect.center = maze1.GetRandomCell().rect.center
+p1.rect.center = maze1.GetTile(1, 1).rect.center
 
 # Creating the borders for the HUD.
 border = pygame.surface.Surface((280, 720)).convert()
@@ -377,34 +442,49 @@ border.fill(COLOUR5)
 # Clock object initialized. Needed to keep FPS stable during runtime.
 clock = pygame.time.Clock()
 
+
+font = pygame.font.SysFont(None, 24)
+
+
 # Game loop. Runs each frame.
 running = True
 while running:
+    item_used = None
     # If ESC is pressed or the window is closed, the process quits.
     for event in pygame.event.get():
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 running = False
+            # Use items.
+            if event.key == pygame.K_z:
+                item_used = "BREAK"
+            elif event.key == pygame.K_x:
+                item_used = "JUMP"
+
         if event.type == pygame.QUIT:
             running = False
+            
+        
+    text = font.render("Break: " + str(p1.item_break)+ " " + "Jump: " + str(p1.item_jump), True, COLOUR4)
+    
 
     # Update and draw everything.
     display_surface.fill(COLOUR2)
-    p1.update()
-    camera_group.draw(display_surface)
+    CAMERA_GROUP.draw(display_surface, p1)
+    p1.update(item_used, maze1)
 
     # HUD.
     display_surface.blit(border, (0, 0))
     display_surface.blit(border, (1000, 0))
-    maze1_map = maze1.DrawMap()
+    maze1_map = maze1.DrawMap(p1)
     display_surface.blit(maze1_map, (((280-maze1_map.get_width())//2), ((280-maze1_map.get_width())//2)))
+    display_surface.blit(text, (20, 290))
 
     # Update display.
     pygame.display.update()
 
     # Makes the game run at a set FPS.
     clock.tick(60)
-
 # Successfuly closes the game.
 pygame.quit()
 exit()
