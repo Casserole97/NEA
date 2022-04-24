@@ -73,12 +73,18 @@ class Wall(Tile):
         super().__init__(row, col)
         self.type = "WALL"
         self.special = is_special
+        self.is_exit = False
         if self.special:
             self.colour = COLOUR6
         else:
             self.colour = COLOUR1
         self.image.fill(self.colour)
         WALLS_GROUP.add(self)
+    
+    def make_exit(self):
+        self.is_exit = True
+        self.colour = COLOUR2
+        self.image.fill(self.colour)
 
 # A tile that can be walked through. It acts as the nodes of a graph.
 class Cell(Tile):
@@ -136,8 +142,8 @@ class Grid():
         else:
             if row % 2 == 0 and col % 2 == 0:
                 return Wall(row, col, True)
-            # elif row == 0 or col == 0 or row == self.MAX_VER_TILES-1 or col == self.MAX_HOR_TILES-1:
-            #     return Wall(row, col, True)
+            elif row == 0 or col == 0 or row == self.MAX_VER_TILES-1 or col == self.MAX_HOR_TILES-1:
+                return Wall(row, col, True)
             else:
                 return Wall(row, col, False)
 
@@ -277,7 +283,15 @@ class Grid():
                         Item(row, col, "JUMP", cell.rect.center)
 
     def generate_exit(self):
-        pass
+        available_walls = []
+        for row in self.grid:
+            for tile in row:
+                pos = tile.get_pos()
+                if pos[0] == 0 or pos[1] == 0 or pos[0] == self.MAX_VER_TILES-1 or pos[1] == self.MAX_HOR_TILES-1:
+                    if pos[0] % 2 != 0 or pos[1] % 2 != 0:
+                        available_walls.append(tile)
+        chosen_wall = choice(available_walls)
+        chosen_wall.make_exit()
 
 # Player class.
 class Player(pygame.sprite.Sprite):
@@ -308,6 +322,7 @@ class Player(pygame.sprite.Sprite):
         elif item == "JUMP" and self.item_jump > 0:
             self.item_jump -= 1
 
+    # Method responsible for player movement and collision.
     def update(self, item_used, maze, elem):
         pressed_keys = pygame.key.get_pressed()
         h_vel = 0
@@ -317,7 +332,7 @@ class Player(pygame.sprite.Sprite):
         touched_tile = self.get_current_tile()
         if touched_tile.colour != COLOUR4:
             touched_tile.change_colour(COLOUR4)
-            elem.add_to_score(5)
+            elem.add_to_score(10)
         for item in ITEMS_GROUP:
             if (item.row, item.col) == touched_tile.get_pos():
                 item.kill()
@@ -338,6 +353,8 @@ class Player(pygame.sprite.Sprite):
         # Checks for collided walls and prevents movement.
         collided_walls = pygame.sprite.spritecollide(self, WALLS_GROUP, False)
         for wall in collided_walls:
+            if wall.is_exit:
+                return True
             if h_vel > 0:
                 self.rect.right = wall.rect.left
                 if not wall.special and item_used != None:
@@ -377,6 +394,8 @@ class Player(pygame.sprite.Sprite):
         # "collided" must be updated again.
         collided_walls = pygame.sprite.spritecollide(self, WALLS_GROUP, False)
         for wall in collided_walls:
+            if wall.is_exit:
+                return True
             if v_vel > 0:
                 self.rect.bottom = wall.rect.top
                 if not wall.special and item_used != None:
@@ -459,8 +478,8 @@ class GameElements():
         self.text_info_break = BIG_FONT.render("'Z' - ITEM1", False, COLOUR1)
         self.text_info_jump = BIG_FONT.render("'X' - ITEM2", False, COLOUR1)
         self.text_info_menu = BIG_FONT.render("'ESC'-MENU", False, COLOUR1)
-        self.time = 60
-        self.score = self.time*5+705
+        self.time = 132
+        self.score = self.time*5
 
     # Draws all the elements of the HUD.
     def draw_hud(self, maze_map, player):
@@ -478,14 +497,14 @@ class GameElements():
         text_jump_count = SMALL_FONT.render(str(player.item_jump), False, COLOUR1)
         display_surface.blit(text_break_count, (1078, 665))
         display_surface.blit(text_jump_count, (1194, 665))
+        # Draw the score.
+        display_surface.blit(self.text_score_title, (52, 440))
+        text_score = BIG_FONT.render(str(self.score), False, COLOUR1)
+        display_surface.blit(text_score, (self.border1.centerx-len(str(self.score))*15, 495))
         # Draw the timer.
         display_surface.blit(self.text_time_title, (75, 580))
         text_time = BIG_FONT.render(self.get_time_str(), False, COLOUR1)
         display_surface.blit(text_time, (self.border1.centerx-len(self.get_time_str())*14, 635))
-        # Draw the score.
-        display_surface.blit(self.text_score_title, (52, 320))
-        text_score = BIG_FONT.render(str(self.score), False, COLOUR1)
-        display_surface.blit(text_score, (self.border1.centerx-len(str(self.score))*15, 375))
         # Display some info.
         display_surface.blit(self.text_info_break, (1015, 15))
         display_surface.blit(self.text_info_jump, (1015, 115))
@@ -517,11 +536,12 @@ class GameElements():
 
 # The grid object is initialized, populated with tiles, and then the maze 
 # algorithm is invoked on a random cell.
-cells = 27
+cells = 5
 maze1 = Grid(cells, cells)
 maze1.recursive_backtracker(maze1.get_random_cell(), 0.02)
 maze1.update_tile_pos()
 maze1.generate_items(1.05)
+maze1.generate_exit()
 
 # HUD.
 game_elements = GameElements()
@@ -557,7 +577,9 @@ while running:
     # Update and draw everything.
     display_surface.fill(COLOUR2)
     CAMERA_GROUP.draw(display_surface, p1)
-    p1.update(item_used, maze1, game_elements)
+    exit_touched = p1.update(item_used, maze1, game_elements)
+    if exit_touched:
+        running = False
 
     # HUD.
     maze1_map = maze1.draw_map(p1, 5)
