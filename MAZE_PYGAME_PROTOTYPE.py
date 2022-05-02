@@ -6,26 +6,26 @@ from sys import exit
 
 pygame.init()
 
-## DECLARING CONSTANTS
+## DECLARING GLOBAL CONSTANTS/VARIABLES
 # Max resolution.
 MAX_WIDTH = 1280
 MAX_HEIGHT = 720
 
-# Common RGB values.
-COLOUR1 = (255, 255, 255)
-COLOUR2 = (0, 0, 0)
-COLOUR3 = (128, 128, 128)
-COLOUR4 = (0, 0, 128)
-COLOUR5 = (30, 30, 30)
-COLOUR6 = (230, 230, 230)
+# Commonly used RGB values.
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GREY = (128, 128, 128)
+LIGHT_GREY = (230, 230, 230)
+DARK_GREY = (30, 30, 30)
+BLUE = (0, 0, 128)
+BRIGHT_GREEN = (0, 255, 0)
 
 # Fonts that will be used to render text.
 SMALL_FONT = pygame.font.SysFont(None, 35)
 BIG_FONT = pygame.font.SysFont(None, 70)
 
-# Custom events.
+# Custom event.
 TIMER_EVENT = pygame.USEREVENT + 1
-ENEMY_UPDATE_PATH_EVENT = pygame.USEREVENT + 2
 
 # Sprite groups.
 TILES_GROUP = pygame.sprite.Group()
@@ -36,15 +36,15 @@ ENEMY_GROUP = pygame.sprite.Group()
 ITEMS_GROUP = pygame.sprite.Group()
 PLAYER_GROUP = pygame.sprite.Group()
 
-# The size, in pixels, of a side of each individual square tile. Important
-# constant, as many other variables will depend on it.
+# The size, in pixels, of a side of each individual square tile. Many other
+# variables will depend on it.
 TILE_PIXELS = 40
 
-# Creating the screen which will be displayed.
+# Creating the window.
 display_surface = pygame.display.set_mode((MAX_WIDTH, MAX_HEIGHT))
 pygame.display.set_caption("Game")
 
-# The two item textures.
+# The two item textures are pre-loaded.
 BREAK_TEXTURE = pygame.image.load("textures/W_Mace003.png").convert_alpha()
 JUMP_TEXTURE = pygame.image.load("textures/I_FrogLeg.png").convert_alpha()
 
@@ -59,6 +59,8 @@ class Tile(pygame.sprite.Sprite):
         self.col = col
         self.image = pygame.Surface((TILE_PIXELS, TILE_PIXELS)).convert()
         self.rect = self.image.get_rect()
+        self.colour = None
+        self.type = None
         TILES_GROUP.add(self)
         CAMERA_GROUP.add(self)
 
@@ -76,23 +78,23 @@ class Wall(Tile):
         self.special = is_special
         self.is_exit = False
         if self.special:
-            self.colour = COLOUR6
+            self.colour = LIGHT_GREY
         else:
-            self.colour = COLOUR1
+            self.colour = WHITE
         self.image.fill(self.colour)
         WALLS_GROUP.add(self)
     
     # Changes the wall to an exit.
     def make_exit(self):
         self.is_exit = True
-        self.change_colour(COLOUR2)
+        self.change_colour(BLACK)
 
 class Cell(Tile):
     def __init__(self, row, col):
         super().__init__(row, col)
         self.type = "CELL"
         self.visited = False
-        self.change_colour(COLOUR2)
+        self.change_colour(BLACK)
         CELLS_GROUP.add(self)
 
     def is_visited(self):
@@ -105,7 +107,7 @@ class Passage(Tile):
     def __init__(self, row, col):
         super().__init__(row, col)
         self.type = "PASSAGE"
-        self.change_colour(COLOUR2)
+        self.change_colour(BLACK)
         PASSAGES_GROUP.add(self)
 
 class Grid():
@@ -222,14 +224,18 @@ class Grid():
                 coords = tile.get_pos()
                 # Draws the bordering walls.
                 if coords[0] == 0 or coords[1] == 0 or coords[0] == self.MAX_VER_TILES-1 or coords[1] == self.MAX_HOR_TILES-1:
-                    pygame.draw.rect(map_surf, COLOUR1, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
+                    pygame.draw.rect(map_surf, WHITE, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
                 # Draws the player square.
                 elif tile.rect.collidepoint(player.rect.center):
-                    pygame.draw.rect(map_surf, COLOUR3, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
+                    pygame.draw.rect(map_surf, GREY, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
                 elif tile.type == "CELL":
                     pygame.draw.rect(map_surf, tile.colour, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
                 elif tile.type == "PASSAGE":
                     pygame.draw.rect(map_surf, tile.colour, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
+                # Draws the enemy only if it is on a painted tile.
+                if tile.colour == BLUE:
+                    if enemy.current_tile == tile:
+                        pygame.draw.rect(map_surf, BRIGHT_GREEN, pygame.Rect(count1, count2, tile_pixels, tile_pixels))
                 count1 += tile_pixels
             count1 = 0
             count2 += tile_pixels
@@ -267,9 +273,9 @@ class Grid():
                     else:
                         Item(row, col, "JUMP", cell.rect.center)
 
-    def generate_exit(self):
+    def get_exit_wall(self):
         # First creates a list of odd-numbered outside walls, and then picks
-        # one to make into an exit.
+        # one and returns it.
         available_walls = []
         for row in self.grid:
             for tile in row:
@@ -278,15 +284,40 @@ class Grid():
                     if pos[0] % 2 != 0 or pos[1] % 2 != 0:
                         available_walls.append(tile)
         chosen_wall = choice(available_walls)
-        chosen_wall.make_exit()
-
-# Player class.
+        return chosen_wall
+    
+    def get_cell_near_exit(self, exit_wall):
+        pos = exit_wall.get_pos()
+        # Similarly to "get_unvisited_neighbours()", it iterates through 
+        # possible cells.
+        try:
+            if self.get_tile(pos[0]-1, pos[1]).type == "CELL":
+                return self.get_tile(pos[0]-1, pos[1])
+        except Exception:
+            pass
+        try:
+            if self.get_tile(pos[0]+1, pos[1]).type == "CELL":
+                return self.get_tile(pos[0]+1, pos[1])
+        except Exception:
+            pass
+        try:
+            if self.get_tile(pos[0], pos[1]-1).type == "CELL":
+                return self.get_tile(pos[0], pos[1]-1)
+        except Exception:
+            pass
+        try:
+            if self.get_tile(pos[0], pos[1]+1).type == "CELL":
+                return self.get_tile(pos[0], pos[1]+1)
+        except Exception:
+            pass
+                    
 class Player(pygame.sprite.Sprite):
-    def __init__(self):
+    def __init__(self, starting_cell):
         super().__init__()
         self.image = pygame.Surface((TILE_PIXELS//2, TILE_PIXELS//2)).convert()
-        self.image.fill(COLOUR3)
+        self.image.fill(GREY)
         self.rect = self.image.get_rect()
+        self.rect.center = starting_cell.rect.center
         self.speed = TILE_PIXELS//10
         self.item_break = 1
         self.item_jump = 1
@@ -312,7 +343,7 @@ class Player(pygame.sprite.Sprite):
 
     # Method responsible for player movement and collision. In the case of
     # touching the enemy or the exit, a value is returned.
-    def update(self, item_used, maze, elem, enemy):
+    def update(self, item_used, maze, elem):
         pressed_keys = pygame.key.get_pressed()
         h_vel = 0
         v_vel = 0
@@ -322,8 +353,8 @@ class Player(pygame.sprite.Sprite):
 
         # Colour the cells and passages upon collision and collect items.
         touched_tile = self.get_current_tile()
-        if touched_tile.colour != COLOUR4:
-            touched_tile.change_colour(COLOUR4)
+        if touched_tile.colour != BLUE:
+            touched_tile.change_colour(BLUE)
             elem.add_to_score(10)
         for item in ITEMS_GROUP:
             if (item.row, item.col) == touched_tile.get_pos():
@@ -361,7 +392,7 @@ class Player(pygame.sprite.Sprite):
                         wall.kill()
                         maze.grid[row][col] = Passage(row, col)
                         maze.update_tile_pos()
-
+            # Code repeated for negative horizontal velocity.
             elif h_vel < 0:
                 self.rect.left = wall.rect.right
                 if not wall.special and item_used != None:
@@ -452,25 +483,30 @@ class Item(pygame.sprite.Sprite):
         ITEMS_GROUP.add(self)
         CAMERA_GROUP.add(self)
 
-# Class that is responsible for the HUD.
 class GameElements():
-    def __init__(self, game_time):
-        # Surfaces to be blitted.
+    def __init__(self):
+        # HUD elements.
         self.border1 = pygame.Rect(0, 0, 280, 720)
         self.border2 = pygame.Rect(1000, 0, 280, 720)
         self.break_2x = pygame.transform.scale2x(BREAK_TEXTURE).convert_alpha()
         self.jump_2x = pygame.transform.scale2x(JUMP_TEXTURE).convert_alpha()
-        self.text_score_title = BIG_FONT.render("SCORE", False, COLOUR1)
-        self.text_time_title = BIG_FONT.render("TIME", False, COLOUR1)
-        self.text_info_break = BIG_FONT.render("'Z' - ITEM1", False, COLOUR1)
-        self.text_info_jump = BIG_FONT.render("'X' - ITEM2", False, COLOUR1)
-        self.text_info_menu = BIG_FONT.render("'ESC'-MENU", False, COLOUR1)
-        # Actual variables.
-        self.time_at_start = game_time
+        self.score_title = BIG_FONT.render("SCORE", False, WHITE)
+        self.time_title = BIG_FONT.render("TIME", False, WHITE)
+        self.info_break = BIG_FONT.render("'Z' - ITEM1", False, WHITE)
+        self.info_jump = BIG_FONT.render("'X' - ITEM2", False, WHITE)
+        self.info_menu = BIG_FONT.render("'ESC'-MENU", False, WHITE)
+        # Variables.
+        self.time_at_start = 0
+        self.time = 0
+        self.score = 0
+        self.main = True
+        self.options = False
+
+    ## METHODS
+    def start_timer(self, time):
+        self.time_at_start = time
         self.time = self.time_at_start
         self.score = self.time*5
-
-    def start_timer(self):
         pygame.time.set_timer(TIMER_EVENT, 1000)
 
     def add_to_score(self, amount):
@@ -493,20 +529,21 @@ class GameElements():
             minutes = str(minutes)
         return minutes + ":" + seconds
 
+    ## HUD METHODS
     def draw_borders(self):
-        pygame.draw.rect(display_surface, COLOUR5, self.border1)
-        pygame.draw.rect(display_surface, COLOUR5, self.border2)
+        pygame.draw.rect(display_surface, DARK_GREY, self.border1)
+        pygame.draw.rect(display_surface, DARK_GREY, self.border2)
     
     def draw_items_counter(self, player):
         # Draws the boxes around the items
-        pygame.draw.rect(display_surface, COLOUR1, (1046, 590, 70, 70), 5)
-        pygame.draw.rect(display_surface, COLOUR1, (1162, 590, 70, 70), 5)
+        pygame.draw.rect(display_surface, WHITE, (1046, 590, 70, 70), 5)
+        pygame.draw.rect(display_surface, WHITE, (1162, 590, 70, 70), 5)
         # Draw the item icons in the boxes.
         display_surface.blit(self.break_2x, (1046, 590))
         display_surface.blit(self.jump_2x, (1162, 590))
         # Renders the item counts and draws them.
-        text_break_count = SMALL_FONT.render(str(player.item_break), False, COLOUR1)
-        text_jump_count = SMALL_FONT.render(str(player.item_jump), False, COLOUR1)
+        text_break_count = SMALL_FONT.render(str(player.item_break), False, WHITE)
+        text_jump_count = SMALL_FONT.render(str(player.item_jump), False, WHITE)
         display_surface.blit(text_break_count, (1078, 665))
         display_surface.blit(text_jump_count, (1194, 665))
     
@@ -514,21 +551,31 @@ class GameElements():
         display_surface.blit(maze_map, (((280-maze_map.get_width())//2), ((280-maze_map.get_width())//2)))
     
     def draw_score(self):
-        display_surface.blit(self.text_score_title, (52, 440))
-        text_score = BIG_FONT.render(str(self.score), False, COLOUR1)
-        display_surface.blit(text_score, (self.border1.centerx-len(str(self.score))*15, 495))
+        # Widths.
+        border_width = self.border1.width
+        title_width = self.score_title.get_width()
+        text_score = BIG_FONT.render(str(self.score), False, WHITE)
+        score_width = text_score.get_width()
+        # Blitting.
+        display_surface.blit(self.score_title, ((border_width-title_width)//2, 440))
+        display_surface.blit(text_score, ((border_width-score_width)//2, 495))
     
     def draw_timer(self):
-        display_surface.blit(self.text_time_title, (75, 580))
-        text_time = BIG_FONT.render(self.get_time_str(), False, COLOUR1)
-        display_surface.blit(text_time, (self.border1.centerx-len(self.get_time_str())*14, 635))
+        # Widths.
+        border_width = self.border1.width
+        title_width = self.time_title.get_width()
+        text_time = BIG_FONT.render(self.get_time_str(), False, WHITE)
+        time_width = text_time.get_width()
+        # Blitting.
+        display_surface.blit(self.time_title, ((border_width-title_width)//2, 580))
+        display_surface.blit(text_time, ((border_width-time_width)//2, 635))
     
     def draw_tips(self):
-        display_surface.blit(self.text_info_break, (1015, 15))
-        display_surface.blit(self.text_info_jump, (1015, 115))
-        display_surface.blit(self.text_info_menu, (1000, 215))
+        display_surface.blit(self.info_break, (1015, 15))
+        display_surface.blit(self.info_jump, (1015, 115))
+        display_surface.blit(self.info_menu, (1000, 215))
     
-    # Draws all the elements together.
+    # Draws all the HUD elements together.
     def draw_hud(self, maze_map, player):
         self.draw_borders()
         self.draw_items_counter(player)
@@ -537,21 +584,114 @@ class GameElements():
         self.draw_timer()
         self.draw_tips()
 
+    ## MENU METHODS
+    def difficulty_select(self, lmb_clicked):
+        # Difficulty options.
+        easy = BIG_FONT.render("EASY", False, pygame.Color("green"))
+        easy_rect = easy.get_rect(topleft=((MAX_WIDTH-easy.get_width())//2, 200))
+        medium = BIG_FONT.render("MEDIUM", False, pygame.Color("orange"))
+        medium_rect = medium.get_rect(topleft=((MAX_WIDTH-medium.get_width())//2, 275))
+        hard = BIG_FONT.render("HARD", False, pygame.Color("red"))
+        hard_rect = hard.get_rect(topleft=((MAX_WIDTH-hard.get_width())//2, 350))
+        exit = BIG_FONT.render("EXIT", False, WHITE)
+        exit_rect = exit.get_rect(topleft=((MAX_WIDTH-exit.get_width())//2, 500))
+        # Blitting.
+        display_surface.blit(easy, easy_rect)
+        display_surface.blit(medium, medium_rect)
+        display_surface.blit(hard, hard_rect)
+        display_surface.blit(exit, exit_rect)
+        # Input.
+        mouse_pos = pygame.mouse.get_pos()
+        if lmb_clicked:
+            if easy_rect.collidepoint(mouse_pos):
+                self.main = True
+                self.options = False
+                return "EASY"
+            elif medium_rect.collidepoint(mouse_pos):
+                self.main = True
+                self.options = False
+                return "MEDIUM"
+            elif hard_rect.collidepoint(mouse_pos):
+                self.main = True
+                self.options = False
+                return "HARD"
+            elif exit_rect.collidepoint(mouse_pos):
+                return "EXIT"
+
+    def start(self, lmb_clicked):
+        # Main menu elements.
+        start = BIG_FONT.render("START", False, WHITE)
+        start_rect = start.get_rect(topleft=((MAX_WIDTH-start.get_width())//2, 425))
+        exit = BIG_FONT.render("EXIT", False, WHITE)
+        exit_rect = exit.get_rect(topleft=((MAX_WIDTH-exit.get_width())//2, 500))
+        # Blitting.
+        display_surface.blit(start, start_rect)
+        display_surface.blit(exit, exit_rect)
+        # Input.
+        mouse_pos = pygame.mouse.get_pos()
+        if lmb_clicked:
+                if start_rect.collidepoint(mouse_pos):
+                    return "START"
+                elif exit_rect.collidepoint(mouse_pos):
+                    return "EXIT"
+
+    # Main menu navigation and drawing.
+    def main_menu(self, lmb_clicked):
+        if self.main:
+            status = self.start(lmb_clicked)
+            if status == "START":
+                self.main = False
+                self.options = True
+            elif status == "EXIT":
+                return "EXIT"
+        if self.options:
+            status = self.difficulty_select(lmb_clicked)
+            if status == "EXIT":
+                self.main = True
+                self.options = False
+            else:
+                return status
+    
+    def pause_menu(self, lmb_clicked):
+        # Blitting the box.
+        centre = [0, 0]
+        centre[0] = (MAX_WIDTH-250)//2
+        centre[1] = (MAX_HEIGHT-200)//2
+        pygame.draw.rect(display_surface, DARK_GREY, ((centre), (250, 200)))
+        pygame.draw.rect(display_surface, WHITE, ((centre), (250, 200)), 5)
+        # Blitting the text.
+        resume = BIG_FONT.render("RESUME", False, WHITE)
+        resume_rect = resume.get_rect(topleft=((MAX_WIDTH-resume.get_width())//2, 300))
+        exit = BIG_FONT.render("EXIT", False, WHITE)
+        exit_rect = exit.get_rect(topleft=((MAX_WIDTH-exit.get_width())//2, 380))
+        display_surface.blit(resume, resume_rect)
+        display_surface.blit(exit, exit_rect)
+        # Input.
+        mouse_pos = pygame.mouse.get_pos()
+        if lmb_clicked:
+            if resume_rect.collidepoint(mouse_pos):
+                return "RESUME"
+            elif exit_rect.collidepoint(mouse_pos):
+                return "EXIT"
+
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, starting_tile):
         super().__init__()
         self.image = pygame.Surface((TILE_PIXELS, TILE_PIXELS)).convert()
-        self.image.fill((0, 255, 0))
+        self.image.fill(BRIGHT_GREEN)
         self.rect = self.image.get_rect()
+        self.rect.center = starting_tile.rect.center
         self.speed = TILE_PIXELS//10
         # Path grid - matrix converted to node objects that A* can use.
         self.pathgrid = None
+        # The A* algorithm.
         self.path_finder = AStarFinder()
+        # Parameters required for movement.
         self.path = []
         self.current_tile = starting_tile
         self.next_tile = None
         ENEMY_GROUP.add(self)
-        CAMERA_GROUP.add(self)
+        CAMERA_GROUP.add(self) 
 
     # Generate a matrix based on the grid, and then update the path grid.
     def update_pathgrid(self, grid):
@@ -567,13 +707,16 @@ class Enemy(pygame.sprite.Sprite):
         else:
             return 1
     
-    # Creates a path made from one tile to another using the A* algorithm.
+    # Creates a path made from one tile to another using the A* algorithm and
+    # updates its path and the next tile.
     def update_path(self, maze, tile1, tile2):
         coords1 = tile1.get_pos()
         coords2 = tile2.get_pos()
         start = self.pathgrid.node(coords1[1], coords1[0])
         end = self.pathgrid.node(coords2[1], coords2[0])
-        xy_path, _ = self.path_finder.find_path(start, end, self.pathgrid)
+        # The function returns two variables, but the second one is just
+        # ignored.
+        xy_path, runs = self.path_finder.find_path(start, end, self.pathgrid)
         self.pathgrid.cleanup()
         # Converts (x, y) coordinates of the path to (row, col) and returns.
         rowcol_path = []
@@ -583,7 +726,7 @@ class Enemy(pygame.sprite.Sprite):
         self.path = rowcol_path
         self.next_tile = self.path[1]
     
-    # Calculates the direction to move in to reach the next tile.
+    # Calculates the direction to move in.
     def get_tile_direction(self, tile):
         if tile.rect.centerx > self.rect.centerx:
             return "RIGHT"
@@ -614,83 +757,172 @@ class Enemy(pygame.sprite.Sprite):
 #Camera group initialized as it could not be initialized earlier in the code.
 CAMERA_GROUP = Camera()
 
-# The grid object is initialized, and then the maze algorithm is invoked on a
-# random cell.
-cells = 27
-maze1 = Grid(cells, cells)
-maze1.recursive_backtracker(maze1.get_random_cell(), 0.02)
-maze1.update_tile_pos()
-maze1.generate_items(0.1)
-maze1.generate_exit()
-
-# HUD initialized and timer started.
-time = 130
-game_elements = GameElements(time)
-game_elements.start_timer()
-
-# Player object is initialized and positioned on a random cell in the maze.
-p1 = Player()
-# random_cell = maze1.get_random_cell()
-p1.rect.center = maze1.get_tile(5, 5).rect.center
-
-# Enemy is initialized and placed on a cell.
-starting_cell = maze1.get_tile(1, 1)
-enemy = Enemy(starting_cell)
-enemy.update_pathgrid(maze1)
-enemy.rect.center = maze1.get_tile(1, 1).rect.center
-enemy.update_path(maze1, enemy.current_tile, p1.get_current_tile())
+# Game elements initialzied.
+game_elements = GameElements()
 
 # Clock object initialized. Needed to keep FPS stable during runtime.
+# Not to be confused with the timer.
 clock = pygame.time.Clock()
 
-# Game loop. Runs each frame.
+# Game loop.
 running = True
+main_menu_open = True
+game_started = False
+game_running = False
+pause_menu_open = False
+end_status = None
+
 while running:
-    item_used = None
-    # Event handler.
-    for event in pygame.event.get():
-        # Checks the keypresses.
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
+    ## MAIN MENU
+    lmb = False
+    if main_menu_open:
+        # Event checker.
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if pygame.mouse.get_pressed()[0]:
+                    lmb = True
+            if event.type == pygame.QUIT:
                 running = False
-            # Sends a signal that an item is used.
-            if event.key == pygame.K_z:
-                item_used = "BREAK"
-            elif event.key == pygame.K_x:
-                item_used = "JUMP"
-        # Checks for custom events.
-        if event.type == TIMER_EVENT:
-            game_elements.second_passed()
-            if game_elements.time % 10 == 0:
-                game_elements.add_to_score(-50)
-        # if event.type == ENEMY_UPDATE_PATH_EVENT:
-        #     enemy.update_pathgrid(maze1)
-        # If the window is closed, the game is quit.
-        if event.type == pygame.QUIT:
-            running = False    
 
-    # Update and draw everything.
-    display_surface.fill(COLOUR2)
-    CAMERA_GROUP.draw(display_surface, p1)
-    status = p1.update(item_used, maze1, game_elements, enemy)
-    enemy.update(maze1, p1)
-    if item_used == "BREAK":
+        display_surface.fill(BLACK)
+        # Difficulty options.
+        menu_status = game_elements.main_menu(lmb)
+        if menu_status == "EASY":
+            cells = 15
+            loop_chance = 0.1
+            item_chance = 0.5
+            time = 60
+            map_size = 8
+            game_started = True
+            main_menu_open = False
+        if menu_status == "MEDIUM":
+            cells = 27
+            loop_chance = 0.08
+            item_chance = 0.25
+            time = 120
+            map_size = 5
+            game_started = True
+            main_menu_open = False
+        if menu_status == "HARD":
+            cells = 45
+            loop_chance = 0.05
+            item_chance = 0.20
+            time = 180
+            map_size = 3
+            game_started = True
+            main_menu_open = False
+        if menu_status == "EXIT":
+            running = False
+
+    ## GAME INITIALIZATION
+    if game_started:
+        # Clears out all objects if they exist.
+        for sprite in CAMERA_GROUP:
+            sprite.kill()
+            del sprite
+        # The grid object is initialized, and then the maze algorithm is invoked on a
+        # random cell.
+        maze1 = Grid(cells, cells)
+        maze1.recursive_backtracker(maze1.get_random_cell(), loop_chance)
+        maze1.update_tile_pos()
+        maze1.generate_items(item_chance)
+        exit_wall = maze1.get_exit_wall()
+        exit_wall.make_exit()
+
+        # Player object is initialized and positioned on a random cell in the maze.
+        random_cell = maze1.get_random_cell()
+        p1 = Player(random_cell)
+
+        # Enemy is initialized and placed on a cell.
+        starting_cell = maze1.get_cell_near_exit(exit_wall)
+        enemy = Enemy(starting_cell)
         enemy.update_pathgrid(maze1)
-    if status == "EXIT":
-        running = False
-    elif status == "ENEMY":
-        running = False
+        enemy.update_path(maze1, enemy.current_tile, p1.get_current_tile())
+    
+        # Timer started.
+        game_elements.start_timer(time)
 
-    # Updates the map and HUD.
-    maze1_map = maze1.draw_map(p1, 5)
-    game_elements.draw_hud(maze1_map, p1)
+        # Status changed.
+        game_started = False
+        game_running = True
+
+    ## GAME PROCESS
+    if game_running:
+        item_used = None
+        # Event handler.
+        for event in pygame.event.get():
+            # Checks the keypresses.
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    pause_menu_open = True
+                    game_running = False
+                # Sends a signal that an item is used.
+                if event.key == pygame.K_z:
+                    item_used = "BREAK"
+                elif event.key == pygame.K_x:
+                    item_used = "JUMP"
+            # Updates the timer and subtracts score.
+            if event.type == TIMER_EVENT:
+                game_elements.second_passed()
+                if game_elements.time % 10 == 0:
+                    game_elements.add_to_score(-50)
+            # If the window is closed, the game is quit.
+            if event.type == pygame.QUIT:
+                running = False    
+
+        # Blit the game and HUD.
+        display_surface.fill(BLACK)
+        CAMERA_GROUP.draw(display_surface, p1)
+        maze1_map = maze1.draw_map(p1, enemy, map_size)
+        game_elements.draw_hud(maze1_map, p1)
+
+        # Update the player and enemy.
+        player_status = p1.update(item_used, maze1, game_elements)
+        enemy.update(maze1, p1)
+        if item_used == "BREAK":
+            enemy.update_pathgrid(maze1)
+        
+        # Quits the game.
+        if player_status == "EXIT":
+            game_running = False
+            main_menu_open = True
+        elif player_status == "ENEMY":
+            game_running = False
+            main_menu_open = True
+
+        # Game is lost if time reaches 0.
+        if game_elements.time == 0:
+            running = False
+
+    ## PAUSE MENU
+    if pause_menu_open:
+        # Event handler.
+        lmb = False
+        for event in pygame.event.get():
+            # Checks the keypresses.
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    pause_menu_open = False
+                    game_running = True
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if pygame.mouse.get_pressed()[0]:
+                    lmb = True
+            if event.type == pygame.QUIT:
+                running = False
+        
+        pause_status = game_elements.pause_menu(lmb)
+        if pause_status == "RESUME":
+            pause_menu_open = False
+            game_running = True
+        elif pause_status == "EXIT":
+            pause_menu_open = False
+            main_menu_open = True
 
     # Update display.
     pygame.display.update()
-
-    # Game is lost if time reaches 0.
-    if game_elements.time == 0:
-        running = False
 
     # Makes the game run at a set FPS.
     clock.tick(60)
