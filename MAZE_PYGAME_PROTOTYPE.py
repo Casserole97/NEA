@@ -885,17 +885,16 @@ while running:
         if item_used == "BREAK":
             enemy.update_pathgrid(maze1)
         
-        # Quits the game.
+        # Quits the game to main menu upon these conditions.
         if player_status == "EXIT":
             game_running = False
             main_menu_open = True
         elif player_status == "ENEMY":
             game_running = False
             main_menu_open = True
-
-        # Game is lost if time reaches 0.
         if game_elements.time == 0:
-            running = False
+            game_running = False
+            main_menu_open = True
 
     ## PAUSE MENU
     if pause_menu_open:
