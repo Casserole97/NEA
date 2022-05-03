@@ -192,6 +192,7 @@ class Grid():
         col = (cell1.col + cell2.col) // 2
         self.grid[row][col] = Passage(row, col)
 
+    # This algorithm was explained in the analysis section.
     def recursive_backtracker(self, cell, loop_chance):
         neighbours = self.get_unvisited_neighbours(cell)
         cell.visit()
@@ -356,6 +357,7 @@ class Player(pygame.sprite.Sprite):
         if touched_tile.colour != BLUE:
             touched_tile.change_colour(BLUE)
             elem.add_to_score(10)
+        # Picks up items.
         for item in ITEMS_GROUP:
             if (item.row, item.col) == touched_tile.get_pos():
                 item.kill()
@@ -468,7 +470,7 @@ class Camera(pygame.sprite.Group):
                 new_pos = ((sprite.rect.topleft[0] - offset[0]), (sprite.rect.topleft[1] - offset[1]))
                 display.blit(sprite.image, new_pos)
 
-# Both item types are created using this object.
+# Both item types are created using this class.
 class Item(pygame.sprite.Sprite):
     def __init__(self, row, col, type, new_center):
         super().__init__()
@@ -502,7 +504,7 @@ class GameElements():
         self.main = True
         self.options = False
 
-    ## METHODS
+    # METHODS
     def start_timer(self, time):
         self.time_at_start = time
         self.time = self.time_at_start
@@ -529,7 +531,7 @@ class GameElements():
             minutes = str(minutes)
         return minutes + ":" + seconds
 
-    ## HUD METHODS
+    # HUD METHODS
     def draw_borders(self):
         pygame.draw.rect(display_surface, DARK_GREY, self.border1)
         pygame.draw.rect(display_surface, DARK_GREY, self.border2)
@@ -584,7 +586,7 @@ class GameElements():
         self.draw_timer()
         self.draw_tips()
 
-    ## MENU METHODS
+    # MENU METHODS
     def difficulty_select(self, lmb_clicked):
         # Difficulty options.
         easy = BIG_FONT.render("EASY", False, pygame.Color("green"))
@@ -757,14 +759,15 @@ class Enemy(pygame.sprite.Sprite):
 #Camera group initialized as it could not be initialized earlier in the code.
 CAMERA_GROUP = Camera()
 
-# Game elements initialzied.
+# Game elements initialized.
 game_elements = GameElements()
 
 # Clock object initialized. Needed to keep FPS stable during runtime.
 # Not to be confused with the timer.
 clock = pygame.time.Clock()
 
-# Game loop.
+# GAME LOOP
+# Flags to open and close the menus and start processes.
 running = True
 main_menu_open = True
 game_started = False
@@ -773,12 +776,14 @@ pause_menu_open = False
 end_status = None
 
 while running:
-    ## MAIN MENU
+    # MAIN MENU
+    # Left mouse button clicked status.
     lmb = False
     if main_menu_open:
         # Event checker.
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
+                # Close the game if ESC is pressed.
                 if event.key == pygame.K_ESCAPE:
                     running = False
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -788,7 +793,7 @@ while running:
                 running = False
 
         display_surface.fill(BLACK)
-        # Difficulty options.
+        # Difficulty options selection.
         menu_status = game_elements.main_menu(lmb)
         if menu_status == "EASY":
             cells = 15
@@ -817,9 +822,9 @@ while running:
         if menu_status == "EXIT":
             running = False
 
-    ## GAME INITIALIZATION
+    # GAME INITIALIZATION
     if game_started:
-        # Clears out all objects if they exist.
+        # Clears out any existing objects.
         for sprite in CAMERA_GROUP:
             sprite.kill()
             del sprite
@@ -836,7 +841,7 @@ while running:
         random_cell = maze1.get_random_cell()
         p1 = Player(random_cell)
 
-        # Enemy is initialized and placed on a cell.
+        # Enemy is initialized and placed on a cell in front of the exit.
         starting_cell = maze1.get_cell_near_exit(exit_wall)
         enemy = Enemy(starting_cell)
         enemy.update_pathgrid(maze1)
@@ -845,17 +850,18 @@ while running:
         # Timer started.
         game_elements.start_timer(time)
 
-        # Status changed.
+        # Flags changed.
         game_started = False
         game_running = True
 
-    ## GAME PROCESS
+    # GAME PROCESS
     if game_running:
         item_used = None
         # Event handler.
         for event in pygame.event.get():
             # Checks the keypresses.
             if event.type == pygame.KEYDOWN:
+                # If pressed escape, pause the game.
                 if event.key == pygame.K_ESCAPE:
                     pause_menu_open = True
                     game_running = False
@@ -896,12 +902,11 @@ while running:
             game_running = False
             main_menu_open = True
 
-    ## PAUSE MENU
+    # PAUSE MENU
     if pause_menu_open:
-        # Event handler.
         lmb = False
+        # Event handler.
         for event in pygame.event.get():
-            # Checks the keypresses.
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     pause_menu_open = False
@@ -926,6 +931,6 @@ while running:
     # Makes the game run at a set FPS.
     clock.tick(60)
 
-# Successfuly closes the game.
+# Successfuly closes the game and quits the process.
 pygame.quit()
 exit()
