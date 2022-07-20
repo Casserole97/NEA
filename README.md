@@ -2,7 +2,7 @@ I used git while writing the NEA for my computer science A-Level, and decided to
 
 # What's an NEA?
 A Non-Exam Assessment is a mainly independent project that you need to complete under a time limit.
-We decided what we wanted to make, and I chose to make a game. I centered it around maze generation to make it a complex enough project.
+I chose to make a game. I centered it around maze generation to make it a complex enough project.
 
 # About this project
 It is a game written with Pygame.
